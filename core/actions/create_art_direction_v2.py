@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 from urllib.parse import urlparse
 
 from core.actions.create_art_direction import CreateArtDirection
@@ -18,7 +19,9 @@ class CreateArtDirectionV2(CreateArtDirection):
 
     name: str = "CreateArtDirectionV2"
 
-    DIRECTION_MARKER = "## SELECTED DESIGN DIRECTION"
+    DIRECTION_MARKER: ClassVar[str] = (
+        "## SELECTED DESIGN DIRECTION"
+    )
 
     @classmethod
     def extract_direction(
