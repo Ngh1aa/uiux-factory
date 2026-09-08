@@ -2,8 +2,8 @@ from metagpt.logs import logger
 from metagpt.roles.role import Role
 from metagpt.schema import Message
 
-from core.actions.create_art_direction import (
-    CreateArtDirection,
+from core.actions.create_art_direction_v2 import (
+    CreateArtDirectionV2,
 )
 
 
@@ -19,6 +19,8 @@ class ArtDirector(Role):
 
     constraints: str = (
         "Use skills_UIUX as visual standards. "
+        "Honor an explicitly selected Design Workbench direction. "
+        "Use external references for calibration, never blind copying. "
         "Do not silently change information architecture. "
         "Do not treat unverified references or inferred brand rules "
         "as project truth."
@@ -28,7 +30,7 @@ class ArtDirector(Role):
         super().__init__(**kwargs)
 
         self.set_actions([
-            CreateArtDirection
+            CreateArtDirectionV2
         ])
 
     async def _act(self) -> Message:
