@@ -15,7 +15,6 @@ from core.contracts.visual_composition_schema import VisualComposition
 from core.contracts.frontend_result_schema import FrontendResult
 from core.contracts.schema import DesignContract
 from core.runtime.run_context import RunContext
-from core.team.team_runner import UIUXTeamRunner
 
 
 class DevelopmentManager:
@@ -35,7 +34,6 @@ class DevelopmentManager:
 
     def __init__(self, root: Path):
         self.root = root.resolve()
-        self.team_runner = UIUXTeamRunner(root=self.root)
 
     def print_flow(self) -> None:
         print("\n[FlowResolver]")
@@ -79,7 +77,6 @@ class DevelopmentManager:
             await self._run_visual_composition(context)
             await self._run_implementation(context)
 
-            await self._run_quality_loop(context)
             context.complete()
 
             return context
@@ -98,11 +95,10 @@ class DevelopmentManager:
 
         context.start_stage(stage)
 
-        result = await self.team_runner.run_role(
-            role_class=ResearchAgent,
-            stage=stage,
-            instruction=context.goal,
-            context=context,
+        agent = ResearchAgent()
+
+        result = await agent.run(
+            context.goal
         )
 
         if not result:
@@ -174,11 +170,10 @@ class DevelopmentManager:
             + research_content
         )
 
-        result = await self.team_runner.run_role(
-            role_class=UXStrategist,
-            stage=stage,
-            instruction=instruction,
-            context=context,
+        agent = UXStrategist()
+
+        result = await agent.run(
+            instruction
         )
 
         if not result:
@@ -281,11 +276,10 @@ class DevelopmentManager:
             + ux_ia_content
         )
 
-        result = await self.team_runner.run_role(
-            role_class=ArtDirector,
-            stage=stage,
-            instruction=instruction,
-            context=context,
+        agent = ArtDirector()
+
+        result = await agent.run(
+            instruction
         )
 
         if not result:
@@ -373,14 +367,13 @@ class DevelopmentManager:
             "artifacts": artifacts,
         }
 
-        result = await self.team_runner.run_role(
-            role_class=DesignContractAgent,
-            stage=stage,
-            instruction=json.dumps(
+        agent = DesignContractAgent()
+
+        result = await agent.run(
+            json.dumps(
                 payload,
                 ensure_ascii=False,
-            ),
-            context=context,
+            )
         )
 
         if not result:
@@ -470,14 +463,13 @@ class DevelopmentManager:
             ),
         }
 
-        result = await self.team_runner.run_role(
-            role_class=DesignSystemAgent,
-            stage=stage,
-            instruction=json.dumps(
+        agent = DesignSystemAgent()
+
+        result = await agent.run(
+            json.dumps(
                 payload,
                 ensure_ascii=False,
-            ),
-            context=context,
+            )
         )
 
         if not result:
@@ -597,14 +589,13 @@ class DevelopmentManager:
             ),
         }
 
-        result = await self.team_runner.run_role(
-            role_class=ImplementationPlanner,
-            stage=stage,
-            instruction=json.dumps(
+        agent = ImplementationPlanner()
+
+        result = await agent.run(
+            json.dumps(
                 payload,
                 ensure_ascii=False,
-            ),
-            context=context,
+            )
         )
 
         if not result:
@@ -730,14 +721,11 @@ class DevelopmentManager:
             ),
         }
 
-        result = await self.team_runner.run_role(
-            role_class=FrontendEngineer,
-            stage=stage,
-            instruction=json.dumps(
+        result = await FrontendEngineer().run(
+            json.dumps(
                 payload,
                 ensure_ascii=False,
-            ),
-            context=context,
+            )
         )
 
         if not result:
@@ -861,14 +849,11 @@ class DevelopmentManager:
             ),
         }
 
-        result = await self.team_runner.run_role(
-            role_class=VisualComposer,
-            stage=stage,
-            instruction=json.dumps(
+        result = await VisualComposer().run(
+            json.dumps(
                 payload,
                 ensure_ascii=False,
-            ),
-            context=context,
+            )
         )
 
         if not result:
@@ -918,132 +903,5 @@ class DevelopmentManager:
 
         print(
             f"[Artifact] {artifact_path}"
-        )
-
-    async def _run_quality_loop(
-        self,
-        context: RunContext,
-    ) -> None:
-        from pathlib import Path
-
-        from core.contracts.frontend_result_schema import (
-            FrontendResult,
-        )
-        from core.orchestration.quality_loop import (
-            QualityLoopRunner,
-        )
-
-        stage = "quality_loop"
-
-        print(
-            "\n[Stage] Quality Loop STARTED"
-        )
-
-        frontend_result_path = Path(
-            context.artifacts.get(
-                "implementation",
-                "",
-            )
-        )
-
-        if not frontend_result_path.exists():
-            raise RuntimeError(
-                "Quality loop cannot start: "
-                "frontend-result artifact missing."
-            )
-
-        frontend = (
-            FrontendResult
-            .model_validate_json(
-                frontend_result_path
-                .read_text(
-                    encoding="utf-8"
-                )
-            )
-        )
-
-        project_dir = Path(
-            frontend.project_dir
-        )
-
-        if not project_dir.exists():
-            raise RuntimeError(
-                "Generated project missing: "
-                f"{project_dir}"
-            )
-
-        context.start_stage(
-            stage
-        )
-
-        runner = QualityLoopRunner(
-            team_runner=(
-                self.team_runner
-            ),
-            run_context=context,
-            max_iterations=3,
-            min_score_improvement=1,
-        )
-
-        result = await runner.run(
-            project_dir=project_dir,
-            project_slug=(
-                frontend.project_slug
-            ),
-            output_dir=(
-                context.run_dir
-            ),
-        )
-
-        artifact_path = (
-            context.run_dir
-            / "quality-loop.json"
-        )
-
-        artifact_path.write_text(
-            result.model_dump_json(
-                indent=2
-            ),
-            encoding="utf-8",
-        )
-
-        context.add_artifact(
-            "quality_loop",
-            artifact_path,
-        )
-
-        if result.status == "passed":
-            context.complete_stage(
-                stage
-            )
-
-            print(
-                "[Stage] Quality Loop COMPLETED"
-            )
-            print(
-                f"[Quality Status] "
-                f"{result.status}"
-            )
-            print(
-                f"[Final Score] "
-                f"{result.final_score}"
-            )
-            print(
-                f"[Iterations] "
-                f"{len(result.iterations)}"
-            )
-            print(
-                f"[Artifact] "
-                f"{artifact_path}"
-            )
-
-            return
-
-        raise RuntimeError(
-            "Quality loop stopped without PASS: "
-            f"status={result.status}; "
-            f"reason={result.stop_reason}; "
-            f"score={result.final_score}; "
-            f"artifact={artifact_path}"
         )
 
