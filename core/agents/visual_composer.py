@@ -2,7 +2,9 @@ from metagpt.logs import logger
 from metagpt.roles.role import Role
 from metagpt.schema import Message
 
-from core.actions.create_visual_composition import CreateVisualComposition
+from core.actions.create_visual_composition_v2 import (
+    CreateVisualCompositionV2,
+)
 
 
 class VisualComposer(Role):
@@ -16,14 +18,16 @@ class VisualComposer(Role):
 
     constraints: str = (
         "Do not code the website. "
+        "Honor the selected art direction and domain. "
         "Do not reuse one hero shell for materially different page roles. "
-        "Keep product and evidence objects stronger than generic decoration."
+        "Keep decision objects and evidence stronger than generic decoration. "
+        "Avoid equal-card monotony and generic AI composition."
     )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_actions([
-            CreateVisualComposition
+            CreateVisualCompositionV2
         ])
 
     async def _act(self) -> Message:
